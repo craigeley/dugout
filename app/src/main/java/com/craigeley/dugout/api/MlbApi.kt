@@ -89,6 +89,8 @@ data class TeamStanding(
     val losses: Int,
     val pct: String,
     val gamesBack: String,  // "-" for the leader
+    val wildCardGamesBack: String,  // "+4.5" for teams holding a spot, "-" for the WC leader
+    val lastTen: String?,   // "7-3"
     val streak: String?,    // "W3"
 )
 
@@ -201,6 +203,14 @@ object MlbApi {
                                             losses = t.optInt("losses"),
                                             pct = t.optString("winningPercentage"),
                                             gamesBack = t.optString("gamesBack", "-"),
+                                            wildCardGamesBack = t.optString("wildCardGamesBack", "-"),
+                                            lastTen = t.optJSONObject("records")
+                                                ?.optJSONArray("splitRecords")?.let { splits ->
+                                                    (0 until splits.length())
+                                                        .map { splits.getJSONObject(it) }
+                                                        .firstOrNull { it.optString("type") == "lastTen" }
+                                                        ?.let { "${it.optInt("wins")}-${it.optInt("losses")}" }
+                                                },
                                             streak = t.optJSONObject("streak")
                                                 ?.optString("streakCode")?.takeIf { it.isNotEmpty() },
                                         ),

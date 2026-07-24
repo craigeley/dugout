@@ -69,14 +69,28 @@ fun StandingsScreen(viewModel: DugoutViewModel, listState: LazyListState) {
                                     style = DugoutType.meta,
                                     color = DugoutColors.onSurfaceDim,
                                     textAlign = TextAlign.End,
-                                    modifier = Modifier.width(70.dp),
+                                    modifier = Modifier.width(64.dp),
                                 )
                                 Text(
                                     text = "GB",
                                     style = DugoutType.meta,
                                     color = DugoutColors.onSurfaceDim,
                                     textAlign = TextAlign.End,
-                                    modifier = Modifier.width(52.dp),
+                                    modifier = Modifier.width(48.dp),
+                                )
+                                Text(
+                                    text = "WCGB",
+                                    style = DugoutType.meta,
+                                    color = DugoutColors.onSurfaceDim,
+                                    textAlign = TextAlign.End,
+                                    modifier = Modifier.width(60.dp),
+                                )
+                                Text(
+                                    text = "L10",
+                                    style = DugoutType.meta,
+                                    color = DugoutColors.onSurfaceDim,
+                                    textAlign = TextAlign.End,
+                                    modifier = Modifier.width(48.dp),
                                 )
                             }
                         }
@@ -108,7 +122,7 @@ private fun StandingRow(team: TeamStanding) {
             color = DugoutColors.onSurface,
             textAlign = TextAlign.End,
             maxLines = 1,
-            modifier = Modifier.width(70.dp),
+            modifier = Modifier.width(64.dp),
         )
         Text(
             text = if (team.gamesBack == "-") "—" else team.gamesBack,
@@ -116,7 +130,23 @@ private fun StandingRow(team: TeamStanding) {
             color = DugoutColors.onSurfaceDim,
             textAlign = TextAlign.End,
             maxLines = 1,
-            modifier = Modifier.width(52.dp),
+            modifier = Modifier.width(48.dp),
+        )
+        Text(
+            text = if (team.wildCardGamesBack == "-") "—" else team.wildCardGamesBack,
+            style = DugoutType.meta,
+            color = DugoutColors.onSurfaceDim,
+            textAlign = TextAlign.End,
+            maxLines = 1,
+            modifier = Modifier.width(60.dp),
+        )
+        Text(
+            text = team.lastTen ?: "—",
+            style = DugoutType.meta,
+            color = DugoutColors.onSurfaceDim,
+            textAlign = TextAlign.End,
+            maxLines = 1,
+            modifier = Modifier.width(48.dp),
         )
     }
 }
