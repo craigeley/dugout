@@ -26,12 +26,13 @@ jobs:
       # `base64 < ~/.android/debug.keystore`; without it, CI generates a
       # fresh keystore and each release gets a new signature.
       - name: Restore debug keystore
-        if: ${{ secrets.DEBUG_KEYSTORE != '' }}
         env:
           DEBUG_KEYSTORE: ${{ secrets.DEBUG_KEYSTORE }}
         run: |
-          mkdir -p ~/.android
-          echo "$DEBUG_KEYSTORE" | base64 -d > ~/.android/debug.keystore
+          if [ -n "$DEBUG_KEYSTORE" ]; then
+            mkdir -p ~/.android
+            echo "$DEBUG_KEYSTORE" | base64 -d > ~/.android/debug.keystore
+          fi
 
       - name: Build release APK
         run: ./gradlew assembleRelease
