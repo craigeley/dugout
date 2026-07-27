@@ -1,0 +1,46 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Release builds are debug-signed. Restoring the same debug keystore on
+      # every run keeps the signature stable across releases so users can
+      # update without uninstalling. Set the DEBUG_KEYSTORE repo secret to
+      # `base64 < ~/.android/debug.keystore`; without it, CI generates a
+      # fresh keystore and each release gets a new signature.
+      - name: Restore debug keystore
+        if: ${{ secrets.DEBUG_KEYSTORE != '' }}
+        env:
+          DEBUG_KEYSTORE: ${{ secrets.DEBUG_KEYSTORE }}
+        run: |
+          mkdir -p ~/.android
+          echo "$DEBUG_KEYSTORE" | base64 -d > ~/.android/debug.keystore
+
+      - name: Build release APK
+        run: ./gradlew assembleRelease
+
+      - name: Rename APK
+        run: cp app/build/outputs/apk/release/app-release.apk "dugout-${{ github.ref_name }}.apk"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dugout-${{ github.ref_name }}.apk
+          generate_release_notes: true
