@@ -71,3 +71,7 @@ MLB Advanced Media, LP.
 Inspired by the Light Phone community tools from
 [vandamd](https://github.com/vandamd). Typeface is
 [Public Sans](https://public-sans.digital.gov/).
+
+## License
+
+[MIT](LICENSE)
