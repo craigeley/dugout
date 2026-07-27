@@ -6,3 +6,5 @@ local.properties
 *.iml
 .kotlin/
 CLAUDE.md
+CLAUDE.audio.md
+.claude/
