@@ -21,8 +21,8 @@ The data comes from a public API, so there is no login required. (And therefore 
   ("Bot 2nd"), finished games the final ("Final/11"), upcoming games the
   start time. Auto-refreshes every 60 seconds while games are live.
 - **Box scores** — tap any started game for a box score; you may have to side scroll if a came goes into extra innings. For live games you can see the current count, runners, and outs, which auto-refreshes every 45 seconds while the game is live.
-- **Standings** — all six divisions with W-L, games back, wild card games
-  back, and last-ten record.
+- **Standings** — all six divisions with W-L, games back ("GB"), wild card games
+  back ("WCGB"), and the team's record over the last 10 games ("L10").
 
 Everything is drawn in Public Sans on pure black, matching the LightOS look:
 no images, no color, no scrollbars — just text you can read at a glance.
