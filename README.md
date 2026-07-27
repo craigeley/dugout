@@ -1,11 +1,12 @@
 # Dugout
 
-MLB scores, box scores, and standings for the
-[Light Phone III](https://www.thelightphone.com/).
+This is an app for MLB scores, box scores, and standings for the
+[Light Phone III](https://www.thelightphone.com/), based on the style of
+[vandamd](https://github.com/vandamd)'s LightOS tools.
 
-A black-and-white, text-first baseball companion in the style of
-[vandamd](https://github.com/vandamd)'s LightOS tools. No ads, no video, no
-notifications — just the day's slate, classic box scores, and the standings.
+The data comes from a public API, so there is no login required. (And therefore also no MLB.com features, including streaming game audio, etc.)
+
+### Screenshots
 
 <p align="center">
   <img src="screenshots/scores.png" width="31%" alt="Scores screen showing a day's final scores">
@@ -19,11 +20,7 @@ notifications — just the day's slate, classic box scores, and the standings.
   and a tap on the date to jump back to today. Live games show the inning
   ("Bot 2nd"), finished games the final ("Final/11"), upcoming games the
   start time. Auto-refreshes every 60 seconds while games are live.
-- **Box scores** — tap any started game for a classic box score: per-inning
-  linescore with R/H/E (scrolls sideways for extra innings), full batting
-  and pitching tables with substitutions indented and pitcher decisions
-  ("(W, 8-3)"), and for live games the current count, runners, and outs.
-  Auto-refreshes every 45 seconds while the game is live.
+- **Box scores** — tap any started game for a box score; you may have to side scroll if a came goes into extra innings. For live games you can see the current count, runners, and outs, which auto-refreshes every 45 seconds while the game is live.
 - **Standings** — all six divisions with W-L, games back, wild card games
   back, and last-ten record.
 
