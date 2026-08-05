@@ -19,6 +19,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import com.craigeley.dugout.DugoutViewModel
 import com.craigeley.dugout.ui.theme.DugoutColors
 import com.craigeley.dugout.ui.theme.DugoutDimens
@@ -30,12 +33,16 @@ import kotlinx.coroutines.delay
 fun ScoresScreen(viewModel: DugoutViewModel, listState: LazyListState) {
     val state by viewModel.state.collectAsState()
 
-    // Keep live scores fresh while looking at today's slate.
+    // Keep live scores fresh while looking at today's slate. RESUMED-gated so
+    // the poll suspends when the app is backgrounded (LP3-21).
     val anyLive = state.games.any { it.abstractState == "Live" }
+    val lifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(state.date, anyLive) {
-        while (anyLive && state.date == LocalDate.now()) {
-            delay(60_000)
-            viewModel.refreshGames(silent = true)
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            while (anyLive && state.date == LocalDate.now()) {
+                delay(60_000)
+                viewModel.refreshGames(silent = true)
+            }
         }
     }
 

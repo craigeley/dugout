@@ -23,6 +23,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import com.craigeley.dugout.DugoutViewModel
 import com.craigeley.dugout.api.BatterLine
 import com.craigeley.dugout.api.LineScore
@@ -40,12 +43,16 @@ fun BoxScoreScreen(viewModel: DugoutViewModel) {
     val line = state.lineScore
     val box = state.boxScore
 
-    // Poll while the game is live so the box score follows along.
+    // Poll while the game is live so the box score follows along. RESUMED-gated
+    // so the poll suspends when the app is backgrounded (LP3-21).
     val live = game.abstractState == "Live"
+    val lifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(game.gamePk, live) {
-        while (live) {
-            delay(45_000)
-            viewModel.refreshDetail()
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            while (live) {
+                delay(45_000)
+                viewModel.refreshDetail()
+            }
         }
     }
 

@@ -318,24 +318,22 @@ object MlbApi {
         if (has(key)) optInt(key) else null
 
     private fun http(url: String): String {
+        // No disconnect(): closing the stream after a full read returns the
+        // socket to the keep-alive pool; disconnect() would evict it (LP3-22).
         val conn = URL(url).openConnection() as HttpURLConnection
-        try {
-            conn.requestMethod = "GET"
-            conn.connectTimeout = 15000
-            conn.readTimeout = 15000
-            conn.setRequestProperty("Accept", "application/json")
-            val code = conn.responseCode
-            val text = (if (code in 200..299) conn.inputStream else conn.errorStream)
-                ?.bufferedReader()?.use { it.readText() }.orEmpty()
-            if (code !in 200..299) {
-                val detail = runCatching { JSONObject(text).optString("message") }.getOrNull()
-                    ?.takeIf { it.isNotEmpty() }
-                throw ApiException(code, detail ?: "request failed ($code)")
-            }
-            if (text.isEmpty()) throw IOException("empty response")
-            return text
-        } finally {
-            conn.disconnect()
+        conn.requestMethod = "GET"
+        conn.connectTimeout = 15000
+        conn.readTimeout = 15000
+        conn.setRequestProperty("Accept", "application/json")
+        val code = conn.responseCode
+        val text = (if (code in 200..299) conn.inputStream else conn.errorStream)
+            ?.bufferedReader()?.use { it.readText() }.orEmpty()
+        if (code !in 200..299) {
+            val detail = runCatching { JSONObject(text).optString("message") }.getOrNull()
+                ?.takeIf { it.isNotEmpty() }
+            throw ApiException(code, detail ?: "request failed ($code)")
         }
+        if (text.isEmpty()) throw IOException("empty response")
+        return text
     }
 }
