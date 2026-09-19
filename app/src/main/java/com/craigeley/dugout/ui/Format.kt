@@ -52,8 +52,15 @@ object Format {
     fun status(g: GameSummary): String {
         val base = when {
             g.abstractState == "Final" -> {
-                val extra = g.currentInning?.takeIf { it != 9 && g.detailedState == "Final" }
-                if (extra != null) "Final/$extra" else g.detailedState.ifEmpty { "Final" }
+                // "Game Over" (statusCode O) is the window between the last out and
+                // MLB marking the box score official (F); to a fan it's already final.
+                val over = g.detailedState == "Final" || g.detailedState == "Game Over"
+                val extra = g.currentInning?.takeIf { it != 9 && over }
+                when {
+                    extra != null -> "Final/$extra"
+                    over -> "Final"
+                    else -> g.detailedState.ifEmpty { "Final" }  // "Completed Early", …
+                }
             }
             g.abstractState == "Live" ->
                 inning(g.inningState, g.inningOrdinal).ifEmpty { g.detailedState }
