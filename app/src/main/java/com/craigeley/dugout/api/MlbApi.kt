@@ -54,6 +54,7 @@ data class BatterLine(
     val name: String,
     val position: String,
     val substitute: Boolean,
+    val footnote: String?,  // pinch-hit letter keyed to TeamBox.notes, e.g. "b"
     val ab: Int,
     val r: Int,
     val h: Int,
@@ -249,6 +250,21 @@ object MlbApi {
         )
     }
 
+    /** MLB's own short name ("Yelich", "Contreras, Wm"): initials only where last names collide. */
+    private fun boxscoreName(player: JSONObject): String {
+        val person = player.getJSONObject("person")
+        return person.optString("boxscoreName").ifEmpty { person.optString("fullName") }
+    }
+
+    /** Every position played this game, newspaper style ("PH-DH"). */
+    private fun positions(player: JSONObject): String {
+        val all = player.optJSONArray("allPositions") ?: JSONArray()
+        val abbrevs = (0 until all.length()).map { all.getJSONObject(it).optString("abbreviation") }
+            .filter { it.isNotEmpty() }
+        return abbrevs.joinToString("-")
+            .ifEmpty { player.optJSONObject("position")?.optString("abbreviation").orEmpty() }
+    }
+
     private fun parseTeamBox(team: JSONObject): TeamBox {
         val players = team.getJSONObject("players")
         val batterIds = team.optJSONArray("batters") ?: JSONArray()
@@ -263,9 +279,10 @@ object MlbApi {
                 val order = p.optString("battingOrder")
                 add(
                     BatterLine(
-                        name = p.getJSONObject("person").optString("fullName"),
-                        position = p.optJSONObject("position")?.optString("abbreviation").orEmpty(),
+                        name = boxscoreName(p),
+                        position = positions(p),
                         substitute = order.isNotEmpty() && !order.endsWith("00"),
+                        footnote = bat.optString("note").trimEnd('-').takeIf { it.isNotEmpty() },
                         ab = bat.optInt("atBats"),
                         r = bat.optInt("runs"),
                         h = bat.optInt("hits"),
@@ -286,7 +303,7 @@ object MlbApi {
                 if (pit.length() == 0) continue
                 add(
                     PitcherLine(
-                        name = p.getJSONObject("person").optString("fullName"),
+                        name = boxscoreName(p),
                         note = pit.optString("note").takeIf { it.isNotEmpty() },
                         ip = pit.optString("inningsPitched"),
                         h = pit.optInt("hits"),
