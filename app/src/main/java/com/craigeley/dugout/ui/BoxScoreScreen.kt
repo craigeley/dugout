@@ -22,6 +22,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -132,7 +133,8 @@ fun BoxScoreScreen(viewModel: DugoutViewModel) {
     }
 }
 
-/** Classic per-inning grid with R/H/E totals; scrolls sideways in extra innings. */
+/** Classic per-inning grid with R/H/E totals. Nine innings fit the ~312dp column
+ * (42 + 9×21 + 6 + 3×24 = 309dp); extras scroll sideways. */
 @Composable
 private fun LineScoreGrid(awayAbbrev: String, homeAbbrev: String, line: LineScore, final: Boolean) {
     val innings = (1..maxOf(9, line.innings.size)).map { num ->
@@ -180,12 +182,12 @@ private fun GridCell(text: String, label: Boolean = false, dim: Boolean = false,
         color = if (dim) DugoutColors.onSurfaceDim else DugoutColors.onSurface,
         textAlign = if (label) TextAlign.Start else TextAlign.Center,
         maxLines = 1,
-        modifier = Modifier.width(if (label) 46.dp else if (wide) 28.dp else 24.dp),
+        modifier = Modifier.width(if (label) 42.dp else if (wide) 24.dp else 21.dp),
     )
 }
 
 @Composable
-private fun GridGap() = Spacer(Modifier.width(8.dp))
+private fun GridGap() = Spacer(Modifier.width(6.dp))
 
 /** Live-game situation: pitcher, batter, count, and runners. */
 @Composable
@@ -262,17 +264,28 @@ private fun BattingHeader() {
             color = DugoutColors.onSurfaceDim,
             modifier = Modifier.weight(1f),
         )
-        listOf("AB", "R", "H", "BI").forEach { StatCell(it, dim = true) }
-        StatCell("AVG", dim = true, wide = true)
+        listOf("AB", "R", "H").forEach { StatCell(it, dim = true) }
+        StatCell("RBI", dim = true, width = 32.dp)
+        StatCell("AVG", dim = true, width = AvgWidth)
     }
 }
 
 @Composable
 private fun BatterRow(b: BatterLine) {
     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+        // Subs sit in a fixed indent that also holds their footnote letter ("b"),
+        // so lettered and unlettered subs line up.
+        if (b.substitute) {
+            Text(
+                text = b.footnote.orEmpty(),
+                style = DugoutType.meta,
+                color = DugoutColors.onSurfaceDim,
+                maxLines = 1,
+                modifier = Modifier.width(SubIndent),
+            )
+        }
         Text(
             text = buildAnnotatedString {
-                if (b.substitute) append("  ")
                 append(b.name)
                 if (b.position.isNotEmpty()) {
                     withStyle(SpanStyle(color = DugoutColors.onSurfaceDim)) {
@@ -289,10 +302,15 @@ private fun BatterRow(b: BatterLine) {
         StatCell("${b.ab}")
         StatCell("${b.r}")
         StatCell("${b.h}")
-        StatCell("${b.rbi}")
-        StatCell(b.avg, dim = true, wide = true)
+        StatCell("${b.rbi}", width = 32.dp)
+        StatCell(b.avg, dim = true, width = AvgWidth)
     }
 }
+
+private val SubIndent = 12.dp
+
+// Fits "1.000"; narrower than the generic wide cell to give names room.
+private val AvgWidth = 42.dp
 
 @Composable
 private fun PitchingHeader() {
@@ -329,13 +347,18 @@ private fun PitcherRow(p: PitcherLine) {
 }
 
 @Composable
-private fun StatCell(text: String, dim: Boolean = false, wide: Boolean = false) {
+private fun StatCell(
+    text: String,
+    dim: Boolean = false,
+    wide: Boolean = false,
+    width: Dp = if (wide) 48.dp else 28.dp,
+) {
     Text(
         text = text,
         style = DugoutType.meta,
         color = if (dim) DugoutColors.onSurfaceDim else DugoutColors.onSurface,
         textAlign = TextAlign.End,
         maxLines = 1,
-        modifier = Modifier.width(if (wide) 48.dp else 28.dp),
+        modifier = Modifier.width(width),
     )
 }
