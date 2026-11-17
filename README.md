@@ -23,6 +23,10 @@ The data comes from a public API, so there is no login required. (And therefore 
 - **Box scores** — tap any started game for a box score; you may have to side scroll if a came goes into extra innings. For live games you can see the current count, runners, and outs, which auto-refreshes every 45 seconds while the game is live.
 - **Standings** — all six divisions with W-L, games back ("GB"), wild card games
   back ("WCGB"), and the team's record over the last 10 games ("L10").
+- **Postseason** — once the postseason starts, a bracket replaces standings:
+  every series by round, latest first, with each team's series wins and the
+  eliminated team dimmed. Postseason scores show where the series stands
+  ("Brewers lead 2-0", "Series tied 1-1", "Brewers win 4-1").
 
 Everything is drawn in Public Sans on pure black, matching the LightOS look:
 no images, no color, no scrollbars — just text you can read at a glance.

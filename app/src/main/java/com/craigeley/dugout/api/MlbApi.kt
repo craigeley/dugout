@@ -3,6 +3,7 @@ package com.craigeley.dugout.api
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.time.LocalDate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -27,6 +28,16 @@ data class GameSummary(
     val doubleHeader: String,   // "N", "Y", "S"
     val gameNumber: Int,
     val description: String?,   // e.g. "Makeup of 5/9 PPD"
+    val series: SeriesStatus?,  // postseason games only
+)
+
+/** Where a postseason series stands going into (or out of) a game. */
+data class SeriesStatus(
+    val gameNumber: Int,  // game of the series, e.g. 3
+    val wins: Int,        // the leader's wins; equal to losses when tied
+    val losses: Int,
+    val leader: String?,  // "Brewers"; null when tied
+    val over: Boolean,
 )
 
 data class InningLine(val num: Int, val away: Int?, val home: Int?)
@@ -97,6 +108,16 @@ data class TeamStanding(
 
 data class DivisionStandings(val division: String, val teams: List<TeamStanding>)
 
+data class SeriesTeam(val name: String, val wins: Int)
+
+/** One postseason series; [top] is the higher seed (home in game 1). */
+data class PostseasonSeries(
+    val round: String,  // "NL Division Series"
+    val top: SeriesTeam,
+    val bottom: SeriesTeam,
+    val over: Boolean,
+)
+
 /**
  * Minimal client for MLB's free Stats API (statsapi.mlb.com) over
  * HttpURLConnection + org.json, in the style of pace's StravaApi.
@@ -112,11 +133,14 @@ object MlbApi {
         204 to "NL East", 205 to "NL Central", 203 to "NL West",
     )
 
+    // Postseason game types, latest round first: World Series, LCS, DS, Wild Card.
+    private val POSTSEASON_ROUNDS = listOf("W", "L", "D", "F")
+
     /** All games on a date (YYYY-MM-DD), with team names and live inning state. */
     suspend fun scoreboard(date: String): List<GameSummary> =
         withContext(Dispatchers.IO) {
             val o = JSONObject(
-                http("$API/schedule?sportId=1&date=$date&hydrate=team,linescore"),
+                http("$API/schedule?sportId=1&date=$date&hydrate=team,linescore,seriesStatus"),
             )
             val dates = o.optJSONArray("dates") ?: JSONArray()
             if (dates.length() == 0) return@withContext emptyList()
@@ -224,16 +248,100 @@ object MlbApi {
             }.sortedBy { DIVISIONS.values.indexOf(it.division) }
         }
 
+    /** First day of the season's postseason, or null if MLB hasn't published one. */
+    suspend fun postseasonStart(season: Int): LocalDate? =
+        withContext(Dispatchers.IO) {
+            val seasons = JSONObject(http("$API/seasons/$season?sportId=1")).optJSONArray("seasons")
+            seasons?.optJSONObject(0)?.optString("postSeasonStartDate")
+                ?.takeIf { it.isNotEmpty() }?.let { LocalDate.parse(it) }
+        }
+
+    /** Every postseason series MLB has scheduled for a season, latest round first. */
+    suspend fun bracket(season: Int): List<PostseasonSeries> =
+        withContext(Dispatchers.IO) {
+            val all = JSONObject(
+                http("$API/schedule/postseason/series?season=$season&sportId=1&hydrate=team"),
+            ).optJSONArray("series") ?: JSONArray()
+            val parsed = buildList {
+                for (i in 0 until all.length()) {
+                    val entry = all.getJSONObject(i)
+                    val games = entry.optJSONArray("games") ?: continue
+                    if (games.length() == 0) continue
+                    val first = games.getJSONObject(0)
+                    // The higher seed hosts game 1.
+                    val top = first.getJSONObject("teams").getJSONObject("home").getJSONObject("team")
+                    val bottom = first.getJSONObject("teams").getJSONObject("away").getJSONObject("team")
+                    val topName = top.optString("teamName")
+                    val bottomName = bottom.optString("teamName")
+                    if (topName.isEmpty() && bottomName.isEmpty()) continue
+                    // Count wins rather than trusting any one game's record: a postponed
+                    // game is listed again (same gamePk) for its makeup, so count each
+                    // gamePk's decided entry once.
+                    val wins = mutableMapOf<Int, Int>()
+                    val counted = mutableSetOf<Long>()
+                    for (j in 0 until games.length()) {
+                        val g = games.getJSONObject(j)
+                        val winner = listOf("away", "home")
+                            .map { g.getJSONObject("teams").getJSONObject(it) }
+                            .firstOrNull { it.optBoolean("isWinner") } ?: continue
+                        if (!counted.add(g.getLong("gamePk"))) continue
+                        val id = winner.getJSONObject("team").optInt("id")
+                        wins[id] = (wins[id] ?: 0) + 1
+                    }
+                    val topWins = wins[top.optInt("id")] ?: 0
+                    val bottomWins = wins[bottom.optInt("id")] ?: 0
+                    val needed = first.optInt("gamesInSeries", 7) / 2 + 1
+                    val series = entry.optJSONObject("series") ?: JSONObject()
+                    val gameType = series.optString("gameType").ifEmpty { first.optString("gameType") }
+                    add(
+                        Triple(
+                            POSTSEASON_ROUNDS.indexOf(gameType),
+                            series.optString("id"),
+                            PostseasonSeries(
+                                round = first.optString("seriesDescription"),
+                                top = SeriesTeam(topName.ifEmpty { "TBD" }, topWins),
+                                bottom = SeriesTeam(bottomName.ifEmpty { "TBD" }, bottomWins),
+                                over = maxOf(topWins, bottomWins) >= needed,
+                            ),
+                        ),
+                    )
+                }
+            }
+            // Within a round, series ids run AL then NL ("D_1", "D_2" AL; "D_3", "D_4" NL).
+            parsed.sortedWith(compareBy({ it.first }, { it.second })).map { it.third }
+        }
+
     private fun parseGame(g: JSONObject): GameSummary {
         val status = g.getJSONObject("status")
         val teams = g.getJSONObject("teams")
         val away = teams.getJSONObject("away")
         val home = teams.getJSONObject("home")
         val linescore = g.optJSONObject("linescore")
+        val awayName = away.getJSONObject("team").optString("teamName")
+        val homeName = home.getJSONObject("team").optString("teamName")
+        // MLB sends a seriesStatus for regular-season series too; only the postseason's matter.
+        val series = g.optJSONObject("seriesStatus")
+            ?.takeIf { g.optString("gameType") in POSTSEASON_ROUNDS }
+            ?.let { s ->
+                val wins = s.optInt("wins")
+                val losses = s.optInt("losses")
+                SeriesStatus(
+                    gameNumber = g.optInt("seriesGameNumber", s.optInt("gameNumber", 1)),
+                    wins = wins,
+                    losses = losses,
+                    leader = when (s.optJSONObject("winningTeam")?.optInt("id")?.takeIf { wins != losses }) {
+                        null -> null
+                        away.getJSONObject("team").optInt("id") -> awayName
+                        home.getJSONObject("team").optInt("id") -> homeName
+                        else -> null
+                    },
+                    over = s.optBoolean("isOver"),
+                )
+            }
         return GameSummary(
             gamePk = g.getLong("gamePk"),
-            awayName = away.getJSONObject("team").optString("teamName"),
-            homeName = home.getJSONObject("team").optString("teamName"),
+            awayName = awayName,
+            homeName = homeName,
             awayAbbrev = away.getJSONObject("team").optString("abbreviation"),
             homeAbbrev = home.getJSONObject("team").optString("abbreviation"),
             awayScore = away.optIntOrNull("score"),
@@ -247,6 +355,7 @@ object MlbApi {
             doubleHeader = g.optString("doubleHeader", "N"),
             gameNumber = g.optInt("gameNumber", 1),
             description = g.optString("description").takeIf { it.isNotEmpty() },
+            series = series,
         )
     }
 
