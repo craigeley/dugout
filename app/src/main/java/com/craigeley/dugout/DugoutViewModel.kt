@@ -7,6 +7,7 @@ import com.craigeley.dugout.api.DivisionStandings
 import com.craigeley.dugout.api.GameSummary
 import com.craigeley.dugout.api.LineScore
 import com.craigeley.dugout.api.MlbApi
+import com.craigeley.dugout.api.PostseasonSeries
 import java.time.LocalDate
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -25,6 +26,11 @@ data class UiState(
     val gamesLoading: Boolean = false,
     val standings: List<DivisionStandings> = emptyList(),
     val standingsLoading: Boolean = false,
+    // Once the postseason starts, a bracket replaces standings (LP3-76). Null until checked.
+    val postseason: Boolean? = null,
+    val seasonLoading: Boolean = false,
+    val bracket: List<PostseasonSeries> = emptyList(),
+    val bracketLoading: Boolean = false,
     val selected: GameSummary? = null,
     val lineScore: LineScore? = null,
     val boxScore: BoxScore? = null,
@@ -37,6 +43,9 @@ class DugoutViewModel : ViewModel() {
     private val _state = MutableStateFlow(UiState())
     val state: StateFlow<UiState> = _state
 
+    // The day [UiState.postseason] was decided, so a long-lived session notices the switch.
+    private var seasonCheckedOn: LocalDate? = null
+
     /** First load when the scores screen opens; no-op once anything is loaded. */
     fun loadInitial() {
         if (!_state.value.gamesLoaded && !_state.value.gamesLoading) refreshGames()
@@ -44,7 +53,62 @@ class DugoutViewModel : ViewModel() {
 
     fun setTab(tab: Tab) {
         _state.update { it.copy(tab = tab) }
-        if (tab == Tab.STANDINGS && _state.value.standings.isEmpty()) refreshStandings()
+        if (tab == Tab.STANDINGS) loadSecondary()
+    }
+
+    /** Title tap on the second tab: refresh standings or the bracket, whichever is showing. */
+    fun refreshSecondary() {
+        when (_state.value.postseason) {
+            true -> refreshBracket()
+            false -> refreshStandings()
+            null -> checkSeason()
+        }
+    }
+
+    private fun loadSecondary() {
+        val s = _state.value
+        when {
+            s.postseason == null || seasonCheckedOn != LocalDate.now() -> checkSeason()
+            s.postseason == true -> if (s.bracket.isEmpty()) refreshBracket()
+            else -> if (s.standings.isEmpty()) refreshStandings()
+        }
+    }
+
+    private fun checkSeason() {
+        if (_state.value.seasonLoading) return
+        viewModelScope.launch {
+            _state.update { it.copy(seasonLoading = true, message = null) }
+            val today = LocalDate.now()
+            runCatching { MlbApi.postseasonStart(today.year) }
+                .onSuccess { start ->
+                    seasonCheckedOn = today
+                    // Stays on through the offseason: the final bracket beats final standings.
+                    val postseason = start != null && !today.isBefore(start)
+                    _state.update { it.copy(postseason = postseason, seasonLoading = false) }
+                    if (_state.value.tab == Tab.STANDINGS) loadSecondary()
+                }
+                .onFailure { t ->
+                    _state.update {
+                        it.copy(seasonLoading = false, message = t.message ?: "Request failed")
+                    }
+                }
+        }
+    }
+
+    fun refreshBracket() {
+        if (_state.value.bracketLoading) return
+        viewModelScope.launch {
+            _state.update { it.copy(bracketLoading = true, message = null) }
+            runCatching { MlbApi.bracket(LocalDate.now().year) }
+                .onSuccess { series ->
+                    _state.update { it.copy(bracket = series, bracketLoading = false) }
+                }
+                .onFailure { t ->
+                    _state.update {
+                        it.copy(bracketLoading = false, message = t.message ?: "Request failed")
+                    }
+                }
+        }
     }
 
     fun previousDay() = setDate(_state.value.date.minusDays(1))

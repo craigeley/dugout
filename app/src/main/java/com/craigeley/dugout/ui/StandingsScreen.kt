@@ -36,14 +36,14 @@ fun StandingsScreen(viewModel: DugoutViewModel, listState: LazyListState) {
                 text = "Standings",
                 style = DugoutType.title,
                 color = DugoutColors.onSurface,
-                onClick = { viewModel.refreshStandings() },
+                onClick = { viewModel.refreshSecondary() },
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(12.dp))
         }
 
         when {
-            state.standingsLoading && state.standings.isEmpty() -> PaddedHint("Loading…")
+            (state.standingsLoading || state.seasonLoading) && state.standings.isEmpty() -> PaddedHint("Loading…")
             state.standings.isEmpty() -> PaddedHint(state.message ?: "No standings")
             else -> {
                 LazyColumn(

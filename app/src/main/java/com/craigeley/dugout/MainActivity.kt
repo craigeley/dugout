@@ -18,6 +18,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.craigeley.dugout.ui.BoxScoreScreen
+import com.craigeley.dugout.ui.BracketScreen
 import com.craigeley.dugout.ui.Navbar
 import com.craigeley.dugout.ui.ScoresScreen
 import com.craigeley.dugout.ui.StandingsScreen
@@ -61,6 +62,7 @@ fun DugoutApp(viewModel: DugoutViewModel) {
     // navigating into the box score and back.
     val scoresListState = rememberLazyListState()
     val standingsListState = rememberLazyListState()
+    val bracketListState = rememberLazyListState()
 
     BackHandler(enabled = state.selected != null) { viewModel.closeDetail() }
     BackHandler(enabled = state.selected == null && state.tab == Tab.STANDINGS) {
@@ -77,7 +79,9 @@ fun DugoutApp(viewModel: DugoutViewModel) {
         Box(modifier = Modifier.weight(1f)) {
             when (state.tab) {
                 Tab.SCORES -> ScoresScreen(viewModel, scoresListState)
-                Tab.STANDINGS -> StandingsScreen(viewModel, standingsListState)
+                Tab.STANDINGS ->
+                    if (state.postseason == true) BracketScreen(viewModel, bracketListState)
+                    else StandingsScreen(viewModel, standingsListState)
             }
         }
         Navbar(current = state.tab, onSelect = { viewModel.setTab(it) })

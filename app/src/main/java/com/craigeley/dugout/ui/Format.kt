@@ -1,6 +1,7 @@
 package com.craigeley.dugout.ui
 
 import com.craigeley.dugout.api.GameSummary
+import com.craigeley.dugout.api.SeriesStatus
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -48,7 +49,7 @@ object Format {
             "${g.awayName} @ ${g.homeName}"
         }
 
-    /** The status line under a game row: "Final/11", "Bot 2nd", "6:10 PM · Game 2", … */
+    /** The status line under a game row: "Final/11", "Bot 2nd", "6:10 PM · Game 2", "Final · Brewers lead 2-0", … */
     fun status(g: GameSummary): String {
         val base = when {
             g.abstractState == "Final" -> {
@@ -69,8 +70,21 @@ object Format {
             else -> g.detailedState  // "Postponed", "Suspended", …
         }
         val parts = mutableListOf(base)
-        if (g.doubleHeader != "N") parts += "Game ${g.gameNumber}"
-        g.description?.let { parts += it }
+        if (g.series != null) {
+            // Postseason: the series score says more than MLB's "NLDS Game 2" description.
+            parts += series(g.series)
+        } else {
+            if (g.doubleHeader != "N") parts += "Game ${g.gameNumber}"
+            g.description?.let { parts += it }
+        }
         return parts.filter { it.isNotEmpty() }.joinToString(" · ")
+    }
+
+    /** "Brewers lead 2-0", "Series tied 1-1", "Brewers win 4-1"; "Game 1" before any are played. */
+    fun series(s: SeriesStatus): String = when {
+        s.wins == 0 && s.losses == 0 -> "Game ${s.gameNumber}"
+        s.leader == null -> "Series tied ${s.wins}-${s.losses}"
+        s.over -> "${s.leader} win ${s.wins}-${s.losses}"
+        else -> "${s.leader} lead ${s.wins}-${s.losses}"
     }
 }
